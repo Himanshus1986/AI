@@ -1,0 +1,6 @@
+CREATE TABLE timesheet_sessions (
+    id INT IDENTITY PRIMARY KEY,
+    email NVARCHAR(255) NOT NULL,
+    data NVARCHAR(MAX),   -- JSON stored as text
+    updated_at DATETIME2 DEFAULT GETDATE()
+);
