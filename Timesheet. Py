@@ -1,0 +1,174 @@
+USE TimesheetDB;
+GO
+
+CREATE TABLE OracleTimesheet (
+    id INT IDENTITY PRIMARY KEY,
+    email NVARCHAR(255),
+    work_date DATE,
+    hours INT,
+    project NVARCHAR(255),
+    comments NVARCHAR(MAX),
+    created_at DATETIME2 DEFAULT GETDATE()
+);
+
+CREATE TABLE MarsTimesheet (
+    id INT IDENTITY PRIMARY KEY,
+    email NVARCHAR(255),
+    work_date DATE,
+    hours INT,
+    project NVARCHAR(255),
+    comments NVARCHAR(MAX),
+    created_at DATETIME2 DEFAULT GETDATE()
+);
+from fastapi import FastAPI, Request
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+import pyodbc
+import requests, json, os
+from datetime import datetime
+
+app = FastAPI()
+
+# 🔹 Adjust with your SQL Server details
+DB_USER = "sa"
+DB_PASS = "MyStrongPass"
+DB_HOST = "192.168.1.10"
+DB_NAME = "TimesheetDB"
+DB_DRIVER = "ODBC Driver 17 for SQL Server"
+
+SQLALCHEMY_URL = f"mssql+pyodbc://{DB_USER}:{DB_PASS}@{DB_HOST}:1433/{DB_NAME}?driver={DB_DRIVER}"
+
+# ORM for session tracking
+engine = create_engine(SQLALCHEMY_URL, pool_pre_ping=True)
+SessionLocal = sessionmaker(bind=engine)
+Base = declarative_base()
+
+class TimesheetSession(Base):
+    __tablename__ = "timesheet_sessions"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, index=True)
+    data = Column(Text)   # JSON as text
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+Base.metadata.create_all(bind=engine)
+
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
+
+# 🧠 Parse free text with Llama 3.2 1B
+def parse_partial(prompt: str):
+    payload = {
+        "model": "llama3.2:1b",
+        "prompt": f"""
+        Extract timesheet details from: "{prompt}".
+        Return JSON with only available fields:
+        - date (YYYY-MM-DD)
+        - hours (integer)
+        - project (string)
+        - comments (string)
+        - system (Oracle or Mars)
+        """
+    }
+    r = requests.post(OLLAMA_URL, json=payload, stream=False)
+    r.raise_for_status()
+    result_text = r.json()["response"].strip()
+    try:
+        return json.loads(result_text)
+    except Exception:
+        return {}
+
+# Direct connection for inserts
+def get_pyodbc_conn():
+    return pyodbc.connect(
+        f"DRIVER={{{DB_DRIVER}}};SERVER={DB_HOST};DATABASE={DB_NAME};UID={DB_USER};PWD={DB_PASS}"
+    )
+
+# 🔹 Insert into OracleTimesheet table
+def submit_to_oracle(timesheet: dict, email: str):
+    conn = get_pyodbc_conn()
+    cursor = conn.cursor()
+    sql = """
+        INSERT INTO OracleTimesheet (email, work_date, hours, project, comments)
+        VALUES (?, ?, ?, ?, ?)
+    """
+    cursor.execute(
+        sql,
+        email,
+        timesheet.get("date"),
+        timesheet.get("hours"),
+        timesheet.get("project"),
+        timesheet.get("comments"),
+    )
+    conn.commit()
+    conn.close()
+    return {"system": "Oracle", "status": "Inserted", "sql": sql}
+
+# 🔹 Insert into MarsTimesheet table
+def submit_to_mars(timesheet: dict, email: str):
+    conn = get_pyodbc_conn()
+    cursor = conn.cursor()
+    sql = """
+        INSERT INTO MarsTimesheet (email, work_date, hours, project, comments)
+        VALUES (?, ?, ?, ?, ?)
+    """
+    cursor.execute(
+        sql,
+        email,
+        timesheet.get("date"),
+        timesheet.get("hours"),
+        timesheet.get("project"),
+        timesheet.get("comments"),
+    )
+    conn.commit()
+    conn.close()
+    return {"system": "Mars", "status": "Inserted", "sql": sql}
+
+@app.post("/fill-timesheet")
+async def fill_timesheet(req: Request):
+    body = await req.json()
+    email = body.get("email")
+    prompt = body.get("prompt")
+
+    if not email:
+        return {"error": "Email is required"}
+
+    db = SessionLocal()
+    session = db.query(TimesheetSession).filter_by(email=email).first()
+
+    if not session:
+        session = TimesheetSession(email=email, data=json.dumps({}))
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+
+    # Parse partial input
+    parsed = parse_partial(prompt)
+    current_data = json.loads(session.data or "{}")
+    current_data.update(parsed)
+
+    session.data = json.dumps(current_data)
+    db.commit()
+
+    required = ["date", "hours", "project", "system"]
+    missing = [f for f in required if f not in current_data]
+
+    result = {"email": email, "session": current_data, "missing": missing}
+
+    # If all info present → insert into proper table
+    if not missing:
+        if current_data["system"].lower() == "oracle":
+            result["results"] = [submit_to_oracle(current_data, email)]
+        elif current_data["system"].lower() == "mars":
+            result["results"] = [submit_to_mars(current_data, email)]
+        else:
+            result["results"] = [
+                submit_to_oracle(current_data, email),
+                submit_to_mars(current_data, email),
+            ]
+
+        # Optional: clear session after submission
+        # session.data = "{}"
+        # db.commit()
+
+    db.close()
+    return result
