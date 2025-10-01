@@ -1,0 +1,50 @@
+from fastapi import HTTPException
+
+# 🔹 Fetch all history for a user
+@app.get("/history/{email}")
+async def get_history(email: str):
+    conn = get_pyodbc_conn()
+    cursor = conn.cursor()
+
+    history = {"oracle": [], "mars": []}
+
+    # Oracle history
+    cursor.execute("""
+        SELECT id, email, work_date, hours, project, comments, created_at
+        FROM OracleTimesheet WHERE email = ?
+        ORDER BY created_at DESC
+    """, email)
+    for row in cursor.fetchall():
+        history["oracle"].append({
+            "id": row.id,
+            "email": row.email,
+            "date": str(row.work_date),
+            "hours": row.hours,
+            "project": row.project,
+            "comments": row.comments,
+            "created_at": str(row.created_at)
+        })
+
+    # Mars history
+    cursor.execute("""
+        SELECT id, email, work_date, hours, project, comments, created_at
+        FROM MarsTimesheet WHERE email = ?
+        ORDER BY created_at DESC
+    """, email)
+    for row in cursor.fetchall():
+        history["mars"].append({
+            "id": row.id,
+            "email": row.email,
+            "date": str(row.work_date),
+            "hours": row.hours,
+            "project": row.project,
+            "comments": row.comments,
+            "created_at": str(row.created_at)
+        })
+
+    conn.close()
+
+    if not history["oracle"] and not history["mars"]:
+        raise HTTPException(status_code=404, detail="No history found for this email")
+
+    return history
