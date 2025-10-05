@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timesheet Chatbot - Example Frontend</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .chat-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .chat-messages {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #fafafa;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .user-message {
+            background: #007bff;
+            color: white;
+            margin-left: 20%;
+        }
+        .bot-message {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            margin-right: 20%;
+        }
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+        .input-container input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .input-container button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .input-container button:hover {
+            background: #0056b3;
+        }
+        .system-info {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            border-left: 4px solid #2196F3;
+        }
+        .html-content {
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            border: 1px solid #e0e0e0;
+        }
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .email-input {
+            margin-bottom: 15px;
+        }
+        .email-input input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <h1>🕒 Conversational Timesheet Chatbot</h1>
+        <p>Chat naturally to manage your Oracle and Mars timesheets!</p>
+
+        <div class="email-input">
+            <input type="email" id="userEmail" placeholder="Enter your email address" value="demo.user@company.com">
+        </div>
+
+        <div class="system-info">
+            <strong>Status:</strong> <span id="systemStatus">Ready</span> | 
+            <strong>Selected System:</strong> <span id="selectedSystem">None</span>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot-message">
+                <strong>Timesheet Bot:</strong> Hello! I'm your timesheet assistant. 
+                I can help you fill timesheets, view entries, and manage your time across Oracle and Mars systems.
+                <br><br>
+                Try saying something like:
+                <ul>
+                    <li>"I want to use Oracle system"</li>
+                    <li>"Add 8 hours for ORG-001 yesterday"</li>
+                    <li>"Show my timesheet for this week"</li>
+                    <li>"What project codes are available?"</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="input-container">
+            <input type="text" id="messageInput" placeholder="Type your message here..." onkeypress="handleKeyPress(event)">
+            <button onclick="sendMessage()" id="sendButton">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        let isLoading = false;
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !isLoading) {
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const emailInput = document.getElementById('userEmail');
+            const messageInput = document.getElementById('messageInput');
+            const chatMessages = document.getElementById('chatMessages');
+            const sendButton = document.getElementById('sendButton');
+
+            const email = emailInput.value.trim();
+            const message = messageInput.value.trim();
+
+            if (!email) {
+                alert('Please enter your email address');
+                return;
+            }
+
+            if (!message) {
+                return;
+            }
+
+            // Disable input while processing
+            isLoading = true;
+            sendButton.textContent = 'Sending...';
+            messageInput.disabled = true;
+            document.body.classList.add('loading');
+
+            // Add user message to chat
+            const userMessageDiv = document.createElement('div');
+            userMessageDiv.className = 'message user-message';
+            userMessageDiv.innerHTML = `<strong>You:</strong> ${message}`;
+            chatMessages.appendChild(userMessageDiv);
+
+            // Clear input
+            messageInput.value = '';
+
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            try {
+                // Send request to API
+                const response = await fetch(`${API_BASE_URL}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        user_prompt: message
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                // Add bot response to chat
+                const botMessageDiv = document.createElement('div');
+                botMessageDiv.className = 'message bot-message';
+                botMessageDiv.innerHTML = `<strong>Timesheet Bot:</strong> ${result.response}`;
+
+                // Add HTML content if present
+                if (result.html_content) {
+                    const htmlContentDiv = document.createElement('div');
+                    htmlContentDiv.className = 'html-content';
+                    htmlContentDiv.innerHTML = result.html_content;
+                    botMessageDiv.appendChild(htmlContentDiv);
+                }
+
+                chatMessages.appendChild(botMessageDiv);
+
+                // Update system status
+                document.getElementById('selectedSystem').textContent = 
+                    result.system_selected || 'None';
+                document.getElementById('systemStatus').textContent = 'Connected';
+
+            } catch (error) {
+                console.error('Error:', error);
+
+                const errorMessageDiv = document.createElement('div');
+                errorMessageDiv.className = 'message bot-message';
+                errorMessageDiv.innerHTML = `<strong>Error:</strong> Failed to connect to the chatbot API. Please make sure the server is running at ${API_BASE_URL}`;
+                chatMessages.appendChild(errorMessageDiv);
+
+                document.getElementById('systemStatus').textContent = 'Error';
+            } finally {
+                // Re-enable input
+                isLoading = false;
+                sendButton.textContent = 'Send';
+                messageInput.disabled = false;
+                messageInput.focus();
+                document.body.classList.remove('loading');
+
+                // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
+        // Focus on input when page loads
+        window.onload = function() {
+            document.getElementById('messageInput').focus();
+        };
+    </script>
+</body>
+</html>

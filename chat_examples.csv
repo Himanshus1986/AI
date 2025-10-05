@@ -1,0 +1,9 @@
+Category,User Input,Expected Response,Functionality
+System Selection,I want to use Oracle system,System selected confirmation,Sets user context to Oracle system
+Simple Timesheet Entry,Add 8 hours for ORG-001 yesterday,Entry saved confirmation with HTML table,Creates timesheet entry with natural date parsing
+Multiple Day Entry,Fill 8 hours daily for ORG-002 this week,Multiple entries saved (Mon-Fri),Creates entries for entire work week
+View Timesheet,Show my Oracle timesheet for this week,HTML table with current week entries,Retrieves and displays timesheet data
+Project Codes Lookup,What Oracle projects are available?,HTML table with available project codes,Lists all available project codes for system
+Copy Previous Week,Copy last week's timesheet to this week,Previous week entries copied successfully,Duplicates previous week entries with new dates
+Complex Entry,I worked 6 hours on MRS-001 Monday and 4 hours on CMN-002 Tuesday,Multiple entries saved confirmation,Handles multiple projects and dates in single request
+Natural Language Dates,Add 7 hours for ORG-003 last Friday,Entry saved for calculated Friday date,Parses relative date expressions

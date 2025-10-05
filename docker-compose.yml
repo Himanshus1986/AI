@@ -1,0 +1,40 @@
+
+version: '3.8'
+
+services:
+  timesheet-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_SERVER=${DB_SERVER:-localhost}
+      - DB_NAME=${DB_NAME:-TimesheetDB}
+      - DB_USERNAME=${DB_USERNAME:-sa}
+      - DB_PASSWORD=${DB_PASSWORD:-YourPassword123}
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+    depends_on:
+      - sqlserver
+    networks:
+      - timesheet-network
+    restart: unless-stopped
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourPassword123
+      - MSSQL_PID=Express
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    networks:
+      - timesheet-network
+    restart: unless-stopped
+
+networks:
+  timesheet-network:
+    driver: bridge
+
+volumes:
+  sqlserver_data:

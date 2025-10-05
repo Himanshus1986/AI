@@ -1,0 +1,11 @@
+Step,Category,Task,Command,Status
+1,Prerequisites,Install Ollama and pull llama3.2:1b model,curl -fsSL https://ollama.com/install.sh | sh && ollama pull llama3.2:1b,Required
+2,Prerequisites,Setup SQL Server with TimesheetDB database,Run timesheet_database_schema.sql,Required
+3,Prerequisites,Install ODBC Driver 17 for SQL Server,Platform-specific installation,Required
+4,Environment,Configure environment variables,Copy .env.template to .env and edit values,Required
+5,Deployment,Install Python dependencies,pip install -r requirements.txt,Required
+6,Deployment,Run health check,curl http://localhost:8000/health,Verification
+7,Testing,Run API test suite,python test_api.py,Recommended
+8,Production,Configure reverse proxy (nginx/Apache),Setup HTTPS and load balancing,Production Only
+9,Production,Setup monitoring and logging,Configure monitoring tools,Production Only
+10,Security,Change default passwords and secrets,Update all default credentials,Critical
