@@ -1,0 +1,66 @@
+Expert Prompt for Perplexity
+Generate a complete backend API in Python (FastAPI preferred) for a conversational timesheet chatbot.
+
+Use SQL Server as the database and define two tables: OracleTimesheet and MarsTimesheet. These represent two systems, and the user must choose one before starting to fill the timesheet using a prompt.
+
+The chatbot should be fully conversational and support multi-turn interactions. The client will only have a chat interface and will send two parameters to the API: email and user_prompt.
+
+The API should handle all logic internally and return a ready-to-render response, including HTML-formatted tables for timesheet summaries.
+
+The chatbot must support the following advanced features:
+
+Conversational input across multiple steps
+
+User can fill timesheets for multiple dates, multiple systems, and multiple task codes/project codes in a single prompt or across multiple prompts
+
+Timesheet entry for one day, multiple days, or full week (Monday to Friday)
+
+View existing timesheet entries
+
+Ask for project codes before filling timesheet
+
+Modify pre-filled timesheet entries
+
+Copy last week’s timesheet and make changes
+
+Save timesheet entries with validation (e.g., hours must be numeric, date must be valid)
+
+Handle natural language inputs like “yesterday”, “tomorrow”, “2 hours on Mars project”, “same as last Monday”
+
+The API should:
+
+Maintain session context per user (based on email)
+
+Validate and parse user input intelligently
+
+Return structured responses with conversational text and HTML tables
+
+Include all business logic and validation in the API itself
+
+🔧 LLM Integration: Use Ollama 3.2 1B as the backend language model. Assume Ollama is installed locally and accessible via direct Python calls.
+
+Do not use generic HTTP API calls. Instead, use the native Python interface:
+
+python
+ollama.chat(
+    model=self.model_name,
+    messages=[{"role": "user", "content": "Hello"}],
+    options={"temperature": 0.7, "num_ctx": 4096}
+)
+Please include:
+
+Database schema for both tables
+
+Full FastAPI code with endpoints
+
+Input parsing and validation logic
+
+Session/context management
+
+Integration with local Ollama using ollama.chat(...)
+
+Sample responses in HTML format
+
+Comments explaining key parts of the code
+
+This should be a production-ready backend that can be plugged into a chat UI.
